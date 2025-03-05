@@ -1,0 +1,180 @@
+services:
+  keycloak_server:
+    image: quay.io/keycloak/keycloak:26.1.0
+    container_name: keycloak_server
+    environment:
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://keycloak_database:5432/users
+      KC_DB_USERNAME: keycloak
+      KC_DB_PASSWORD: password
+
+      KC_FEATURES: token-exchange,admin-fine-grained-authz
+
+      KC_HOSTNAME: localhost
+      KC_HOSTNAME_PORT: 8080
+      KC_HOSTNAME_STRICT: false
+      KC_HOSTNAME_STRICT_HTTPS: false
+
+      KC_LOG_LEVEL: info
+      KC_METRICS_ENABLED: true
+      KC_HEALTH_ENABLED: true
+      KC_BOOTSTRAP_ADMIN_USERNAME: admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: admin
+    command: start-dev
+    depends_on:
+      - keycloak_database
+    ports:
+      - "8080:8080"
+    restart: always
+
+  keycloak_database:
+    image: postgres:17
+    volumes:
+      - ./data/keycloak_database:/var/lib/postgresql/data
+    restart: always
+    environment:
+      POSTGRES_DB: users
+      POSTGRES_USER: keycloak
+      POSTGRES_PASSWORD: password
+    ports:
+      - "5435:5432"
+
+  workshop-database:
+    image: postgres:17-alpine
+    restart: always
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./data/workshop_database:/var/lib/postgresql/data
+    environment:
+      POSTGRES_DB: workshops
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+
+  # kubectl create deployment workshop-database --image=postgres:17-alpine --port=5432 --dry-run=client -o yaml
+  # kubectl create service clusterip workshop-database --tcp=5432:5432 --dry-run=client -o yaml
+  # kubectl create secret generic workshop-database --from-literal=postgres_db=workshops --from-literal=postgres_user=user --from-literal=postgres_password=password --dry-run=client -o yaml
+
+  file-database:
+    image: mongo:8.0
+    container_name: file-database
+    restart: always
+    volumes:
+      - ./data/file_database:/data/db
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: password
+    ports:
+      - "27017:27017"
+
+  service-operations-database:
+    image: mysql:9.2.0
+    container_name: service-operations-database
+    restart: always
+    volumes:
+      - ./data/service_operations_database:/var/lib/mysql
+    environment:
+      MYSQL_DATABASE: service_operations
+      MYSQL_USER: user
+      MYSQL_PASSWORD: password
+    ports:
+      - "3305:3306"
+
+  scheduling-management-database:
+    image: mariadb:10.6
+    container_name: scheduling-management-database
+    restart: always
+    volumes:
+      - ./data/scheduling_management_database:/var/lib/mysql
+    environment:
+      MARIADB_USER: user
+      MARIADB_PASSWORD: password
+      MARIADB_DATABASE: scheduling_management
+      MARIADB_ROOT_PASSWORD: password
+    ports:
+      - "3304:3306"
+
+  staff-management-database:
+    image: mysql:9.2.0
+    container_name: staff-management-database
+    restart: always
+    volumes:
+      - ./data/staff_management_database:/var/lib/mysql
+    environment:
+      MYSQL_DATABASE: staff_management
+      MYSQL_USER: user
+      MYSQL_PASSWORD: password
+      MYSQL_ROOT_PASSWORD: password
+    ports:
+      - "3303:3306"
+
+  # kubectl create secret generic staff-database-secrets --from-literal=mysql_db=staff_management --from-literal=mysql_user=user --from-literal=mysql_password=password --from-literal=mysql_root_password=password --dry-run=client -o yaml
+
+
+  # Kafka and Zookeeper
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.5.0
+    hostname: zookeeper
+    container_name: zookeeper
+    ports:
+      - "2181:2181"
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+
+  broker:
+    image: confluentinc/cp-kafka:7.5.0
+    container_name: broker
+    ports:
+      - "9092:9092"
+      - "29092:29092"
+    depends_on:
+      - zookeeper
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: 'zookeeper:2181'
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://broker:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+
+  schema-registry:
+    image: confluentinc/cp-schema-registry:7.5.0
+    hostname: schema-registry
+    container_name: schema-registry
+    depends_on:
+      - broker
+    ports:
+      - "8085:8081"
+    environment:
+      SCHEMA_REGISTRY_HOST_NAME: schema-registry
+      SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: 'broker:29092'
+      SCHEMA_REGISTRY_LISTENERS: http://schema-registry:8081
+  kafka-ui:
+    container_name: kafka-ui
+    image: provectuslabs/kafka-ui:latest
+    ports:
+      - "8086:8080"
+    depends_on:
+      - broker
+    #      - schema-registry
+    environment:
+      KAFKA_CLUSTERS_NAME: local
+      KAFKA_CLUSTERS_BOOTSTRAPSERVERS: broker:29092
+      #      KAFKA_CLUSTERS_SCHEMAREGISTRY: http://schema-registry:8081
+      DYNAMIC_CONFIG_ENABLED: 'true'
+
+
+
+volumes:
+  postgres_data:
+    driver: local
+  workshop_data:
+    driver: local
+  file_data:
+    driver: local
+  service_operations_data:
+    driver: local
+  scheduling_management_data:
+    driver: local
+  staff_management_data:
+    driver: local
