@@ -25,7 +25,10 @@ services:
       - keycloak_database
     ports:
       - "8080:8080"
+      - "8081:8080"
     restart: always
+
+# kubectl create secret generic keycloak-secrets --from-literal=keycloak_db_user=keycloak --from-literal=keycloak_db_password=password12345 --from-literal=keycloak_admin_user=jhosepmyr --from-literal=keycloak_admin_password=password12345 --dry-run=client -o yaml
 
   keycloak_database:
     image: postgres:17
@@ -38,6 +41,8 @@ services:
       POSTGRES_PASSWORD: password
     ports:
       - "5435:5432"
+
+# kubectl create secret generic keycloak-secrets --from-literal=keycloak_db=keycloak --from-literal=keycloak_db_user=jhosepmyr --from-literal=keycloak_db_password=password12345 --dry-run=client -o yaml
 
   workshop-database:
     image: postgres:17-alpine
@@ -62,8 +67,8 @@ services:
     volumes:
       - ./data/file_database:/data/db
     environment:
-      MONGO_INITDB_ROOT_USERNAME: root
-      MONGO_INITDB_ROOT_PASSWORD: password
+        MONGO_INITDB_ROOT_USERNAME: root
+        MONGO_INITDB_ROOT_PASSWORD: password
     ports:
       - "27017:27017"
 
@@ -75,6 +80,7 @@ services:
       - ./data/service_operations_database:/var/lib/mysql
     environment:
       MYSQL_DATABASE: service_operations
+      MYSQL_ROOT_PASSWORD: root
       MYSQL_USER: user
       MYSQL_PASSWORD: password
     ports:
@@ -111,7 +117,7 @@ services:
   # kubectl create secret generic staff-database-secrets --from-literal=mysql_db=staff_management --from-literal=mysql_user=user --from-literal=mysql_password=password --from-literal=mysql_root_password=password --dry-run=client -o yaml
 
 
-  # Kafka and Zookeeper
+# Kafka and Zookeeper
   zookeeper:
     image: confluentinc/cp-zookeeper:7.5.0
     hostname: zookeeper
@@ -156,11 +162,11 @@ services:
       - "8086:8080"
     depends_on:
       - broker
-    #      - schema-registry
+#      - schema-registry
     environment:
       KAFKA_CLUSTERS_NAME: local
       KAFKA_CLUSTERS_BOOTSTRAPSERVERS: broker:29092
-      #      KAFKA_CLUSTERS_SCHEMAREGISTRY: http://schema-registry:8081
+#      KAFKA_CLUSTERS_SCHEMAREGISTRY: http://schema-registry:8081
       DYNAMIC_CONFIG_ENABLED: 'true'
 
 
